@@ -1,0 +1,17 @@
+# Containerlab runtime folders
+clab-*/
+.*.clab.yml.bak
+
+# Secrets and local env
+.env
+*.key
+*.pem
+
+# OS / editor junk
+.DS_Store
+.vscode/
+*.swp
+
+# Large captures and logs
+*.pcap
+*.log
