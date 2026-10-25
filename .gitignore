@@ -15,3 +15,4 @@ clab-*/
 # Large captures and logs
 *.pcap
 *.log
+monitoring/.env
