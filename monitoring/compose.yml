@@ -14,7 +14,7 @@ services:
       - prometheus-data:/prometheus
     ports:
       - "9090:9090"
-    networks: [monitoring]
+    networks: [monitoring, clab]
     restart: unless-stopped
 
   loki:
@@ -59,6 +59,8 @@ services:
 networks:
   monitoring:
     name: monitoring
+  clab:
+    external: true
 
 volumes:
   prometheus-data:

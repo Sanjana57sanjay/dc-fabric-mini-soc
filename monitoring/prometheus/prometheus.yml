@@ -18,3 +18,25 @@ scrape_configs:
   - job_name: grafana
     static_configs:
       - targets: ['grafana:3000']
+
+  - job_name: frr
+    static_configs:
+      - targets: ['clab-fabric-spine1:9342', 'clab-fabric-spine2:9342']
+        labels: {role: spine}
+      - targets: ['clab-fabric-leaf1:9342', 'clab-fabric-leaf2:9342']
+        labels: {role: leaf}
+    relabel_configs:
+      - source_labels: [__address__]
+        regex: 'clab-fabric-([^:]+):\d+'
+        target_label: instance
+
+  - job_name: fabric-netdev
+    static_configs:
+      - targets: ['clab-fabric-spine1:9100', 'clab-fabric-spine2:9100']
+        labels: {role: spine}
+      - targets: ['clab-fabric-leaf1:9100', 'clab-fabric-leaf2:9100']
+        labels: {role: leaf}
+    relabel_configs:
+      - source_labels: [__address__]
+        regex: 'clab-fabric-([^:]+):\d+'
+        target_label: instance

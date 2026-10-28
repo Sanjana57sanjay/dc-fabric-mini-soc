@@ -9,6 +9,7 @@ topology:
         - configs/common/daemons:/etc/frr/daemons
         - configs/common/vtysh.conf:/etc/frr/vtysh.conf
         - configs/spine1/frr.conf:/etc/frr/frr.conf
+        - run/spine1:/var/run/frr
       exec:
         - sysctl -w net.ipv4.ip_forward=1
     spine2:
@@ -18,6 +19,7 @@ topology:
         - configs/common/daemons:/etc/frr/daemons
         - configs/common/vtysh.conf:/etc/frr/vtysh.conf
         - configs/spine2/frr.conf:/etc/frr/frr.conf
+        - run/spine2:/var/run/frr
       exec:
         - sysctl -w net.ipv4.ip_forward=1
     leaf1:
@@ -28,6 +30,7 @@ topology:
         - configs/common/vtysh.conf:/etc/frr/vtysh.conf
         - configs/common/setup-evpn.sh:/setup-evpn.sh
         - configs/leaf1/frr.conf:/etc/frr/frr.conf
+        - run/leaf1:/var/run/frr
       exec:
         - sysctl -w net.ipv4.ip_forward=1
         - sh /setup-evpn.sh 10.0.0.11
@@ -39,6 +42,7 @@ topology:
         - configs/common/vtysh.conf:/etc/frr/vtysh.conf
         - configs/common/setup-evpn.sh:/setup-evpn.sh
         - configs/leaf2/frr.conf:/etc/frr/frr.conf
+        - run/leaf2:/var/run/frr
       exec:
         - sysctl -w net.ipv4.ip_forward=1
         - sh /setup-evpn.sh 10.0.0.12
@@ -55,6 +59,61 @@ topology:
       exec:
         - ip link set eth1 mtu 1500
         - ip addr add 192.168.10.12/24 dev eth1
+
+    # ---- Telemetry sidecars (Part 5): share each router's network namespace ----
+    spine1-frrexp:
+      kind: linux
+      image: tynany/frr_exporter:v1.11.0
+      network-mode: container:spine1
+      user: root
+      binds:
+        - run/spine1:/frr_sockets
+      cmd: --frr.socket.dir-path=/frr_sockets --collector.bgpl2vpn --no-collector.ospf --no-collector.bfd
+    spine2-frrexp:
+      kind: linux
+      image: tynany/frr_exporter:v1.11.0
+      network-mode: container:spine2
+      user: root
+      binds:
+        - run/spine2:/frr_sockets
+      cmd: --frr.socket.dir-path=/frr_sockets --collector.bgpl2vpn --no-collector.ospf --no-collector.bfd
+    leaf1-frrexp:
+      kind: linux
+      image: tynany/frr_exporter:v1.11.0
+      network-mode: container:leaf1
+      user: root
+      binds:
+        - run/leaf1:/frr_sockets
+      cmd: --frr.socket.dir-path=/frr_sockets --collector.bgpl2vpn --no-collector.ospf --no-collector.bfd
+    leaf2-frrexp:
+      kind: linux
+      image: tynany/frr_exporter:v1.11.0
+      network-mode: container:leaf2
+      user: root
+      binds:
+        - run/leaf2:/frr_sockets
+      cmd: --frr.socket.dir-path=/frr_sockets --collector.bgpl2vpn --no-collector.ospf --no-collector.bfd
+
+    spine1-netdev:
+      kind: linux
+      image: prom/node-exporter:v1.9.1
+      network-mode: container:spine1
+      cmd: --collector.disable-defaults --collector.netdev --collector.netdev.device-exclude=^lo$
+    spine2-netdev:
+      kind: linux
+      image: prom/node-exporter:v1.9.1
+      network-mode: container:spine2
+      cmd: --collector.disable-defaults --collector.netdev --collector.netdev.device-exclude=^lo$
+    leaf1-netdev:
+      kind: linux
+      image: prom/node-exporter:v1.9.1
+      network-mode: container:leaf1
+      cmd: --collector.disable-defaults --collector.netdev --collector.netdev.device-exclude=^lo$
+    leaf2-netdev:
+      kind: linux
+      image: prom/node-exporter:v1.9.1
+      network-mode: container:leaf2
+      cmd: --collector.disable-defaults --collector.netdev --collector.netdev.device-exclude=^lo$
 
   links:
     # Underlay (Part 2)
