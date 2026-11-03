@@ -8,3 +8,6 @@ alert tcp !$UNDERLAY_NET any -> $UNDERLAY_NET $BGP_PORTS (msg:"FABRIC BGP SYN fr
 
 # 9000003 - VXLAN traffic from an address that is not a known VTEP
 alert udp !$VTEP_NET any -> $VTEP_NET $VXLAN_PORTS (msg:"FABRIC VXLAN packet from non-VTEP source"; classtype:policy-violation; sid:9000003; rev:1;)
+
+# 9000004 - local equivalent of ET/GPL 2100498 (ET Open not loaded on this sensor)
+alert ip any any -> any any (msg:"FABRIC ATTACK_RESPONSE id check returned root"; content:"uid=0|28|root|29|"; classtype:bad-unknown; sid:9000004; rev:1;)
