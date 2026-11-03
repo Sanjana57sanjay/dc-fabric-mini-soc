@@ -1,0 +1,36 @@
+// dc-fabric-mini-soc - ship Suricata eve.json to Loki
+
+local.file_match "suricata" {
+  path_targets = [
+    {"__path__" = "/var/log/suricata/leaf1/eve.json", "job" = "suricata", "sensor" = "leaf1"},
+  ]
+}
+
+loki.source.file "suricata" {
+  targets    = local.file_match.suricata.targets
+  forward_to = [loki.process.suricata.receiver]
+}
+
+loki.process "suricata" {
+  stage.json {
+    expressions = { event_type = "event_type", ts = "timestamp" }
+  }
+
+  stage.labels {
+    values = { event_type = "" }
+  }
+
+  // Suricata format: 2026-11-02T14:03:22.123456+0000
+  stage.timestamp {
+    source = "ts"
+    format = "2006-01-02T15:04:05.999999-0700"
+  }
+
+  forward_to = [loki.write.local.receiver]
+}
+
+loki.write "local" {
+  endpoint {
+    url = "http://mon-loki:3100/loki/api/v1/push"
+  }
+}

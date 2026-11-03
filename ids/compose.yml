@@ -1,0 +1,40 @@
+name: mini-soc-ids
+
+services:
+  suricata-leaf1:
+    image: jasonish/suricata:8.0.4
+    container_name: ids-suricata-leaf1
+    network_mode: "container:clab-fabric-leaf1"   # share leaf1's netns (like the Part 5 sidecars)
+    cap_add: [NET_ADMIN, NET_RAW, SYS_NICE]
+    command: ["-c", "/fabric/suricata.yaml", "--af-packet"]
+    volumes:
+      # config lives outside /etc/suricata: the image entrypoint chowns that tree
+      - ./suricata/suricata.yaml:/fabric/suricata.yaml:ro
+      - ./suricata/rules:/fabric/rules:ro
+      - ./suricata/lib:/var/lib/suricata
+      - ./logs/leaf1:/var/log/suricata
+    mem_limit: 768m
+    restart: unless-stopped
+
+  alloy:
+    image: grafana/alloy:v1.11.0
+    container_name: ids-alloy
+    command:
+      - run
+      - --server.http.listen-addr=0.0.0.0:12345
+      - --storage.path=/var/lib/alloy/data
+      - /etc/alloy/config.alloy
+    volumes:
+      - ./alloy/config.alloy:/etc/alloy/config.alloy:ro
+      - ./logs:/var/log/suricata:ro
+      - alloy-data:/var/lib/alloy/data
+    networks: [monitoring]
+    restart: unless-stopped
+
+networks:
+  monitoring:
+    external: true
+    name: monitoring
+
+volumes:
+  alloy-data:

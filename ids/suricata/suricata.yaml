@@ -1,0 +1,150 @@
+%YAML 1.1
+---
+# dc-fabric-mini-soc - Suricata IDS sidecar on leaf1 (af-packet, passive)
+
+vars:
+  address-groups:
+    HOME_NET: "[10.0.0.0/8,192.168.10.0/24]"
+    EXTERNAL_NET: "any"            # lab choice: all traffic is internal, so let
+                                   # EXTERNAL->HOME rules fire between our own hosts
+    UNDERLAY_NET: "[10.0.0.0/24,10.1.0.0/16]"
+    VTEP_NET: "[10.0.0.11,10.0.0.12]"
+    TENANT_NET: "192.168.10.0/24"
+    HTTP_SERVERS: "$HOME_NET"
+    SMTP_SERVERS: "$HOME_NET"
+    SQL_SERVERS: "$HOME_NET"
+    DNS_SERVERS: "$HOME_NET"
+    TELNET_SERVERS: "$HOME_NET"
+    AIM_SERVERS: "$EXTERNAL_NET"
+    DC_SERVERS: "$HOME_NET"
+    DNP3_SERVER: "$HOME_NET"
+    DNP3_CLIENT: "$HOME_NET"
+    MODBUS_CLIENT: "$HOME_NET"
+    MODBUS_SERVER: "$HOME_NET"
+    ENIP_CLIENT: "$HOME_NET"
+    ENIP_SERVER: "$HOME_NET"
+  port-groups:
+    HTTP_PORTS: "80"
+    SHELLCODE_PORTS: "!80"
+    ORACLE_PORTS: 1521
+    SSH_PORTS: 22
+    DNP3_PORTS: 20000
+    MODBUS_PORTS: 502
+    FILE_DATA_PORTS: "[$HTTP_PORTS,110,143]"
+    FTP_PORTS: 21
+    GENEVE_PORTS: 6081
+    VXLAN_PORTS: 4789
+    TEREDO_PORTS: 3544
+    SIP_PORTS: "[5060,5061]"
+    BGP_PORTS: 179
+
+default-log-dir: /var/log/suricata/
+default-rule-path: /var/lib/suricata/rules
+rule-files:
+  - suricata.rules                              # ET Open (suricata-update)
+  - /fabric/rules/local.rules      # our fabric rules
+classification-file: /etc/suricata/classification.config
+reference-config-file: /etc/suricata/reference.config
+
+runmode: autofp            # ECMP: a flow can arrive on eth1 one way, eth2 the other
+
+af-packet:
+  - interface: eth1
+    cluster-id: 91
+    cluster-type: cluster_flow
+    defrag: yes
+    threads: 1
+    use-mmap: yes
+    ring-size: 4096
+    checksum-checks: no    # veth often carries unfilled checksums
+  - interface: eth2
+    cluster-id: 92
+    cluster-type: cluster_flow
+    defrag: yes
+    threads: 1
+    use-mmap: yes
+    ring-size: 4096
+    checksum-checks: no
+
+capture:
+  disable-offloading: true # turn off GRO/TSO on sniffed ifaces (restored on exit)
+
+decoder:
+  vxlan:
+    enabled: true
+    ports: $VXLAN_PORTS    # decapsulate overlay -> inspect inner tenant traffic
+
+threading:
+  set-cpu-affinity: no
+  detect-thread-ratio: 0.5 # 4 vCPU -> 2 detect threads
+
+detect:
+  profile: low             # smaller memory footprint for the VM
+  sgh-mpm-context: auto
+
+flow:
+  memcap: 64mb
+  hash-size: 65536
+  prealloc: 10000
+
+stream:
+  memcap: 64mb
+  checksum-validation: no
+  reassembly:
+    memcap: 128mb
+    depth: 1mb
+
+app-layer:
+  protocols:
+    http:
+      enabled: yes
+    tls:
+      enabled: yes
+      detection-ports:
+        dp: 443
+    ssh:
+      enabled: yes
+    dns:
+      tcp:
+        enabled: yes
+        detection-ports:
+          dp: 53
+      udp:
+        enabled: yes
+        detection-ports:
+          dp: 53
+
+stats:
+  enabled: yes
+  interval: 30
+
+outputs:
+  - eve-log:
+      enabled: yes
+      filetype: regular
+      filename: eve.json
+      community-id: true
+      types:
+        - alert:
+            tagged-packets: no
+        - anomaly:
+            enabled: yes
+        - flow
+        - stats:
+            totals: yes
+            threads: no
+            deltas: yes
+
+logging:
+  default-log-level: notice
+  outputs:
+    - console:
+        enabled: yes
+    - file:
+        enabled: yes
+        level: info
+        filename: suricata.log
+
+unix-command:
+  enabled: yes
+  filename: /var/run/suricata/suricata-command.socket

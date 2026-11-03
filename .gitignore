@@ -17,3 +17,7 @@ clab-*/
 *.log
 monitoring/.env
 labs/fabric/run/
+
+# Part 6 - Suricata runtime data (not source)
+ids/logs/
+ids/suricata/lib/
