@@ -13,3 +13,5 @@ alert udp !$VTEP_NET any -> $VTEP_NET $VXLAN_PORTS (msg:"FABRIC VXLAN packet fro
 alert ip any any -> any any (msg:"FABRIC ATTACK_RESPONSE id check returned root"; content:"uid=0|28|root|29|"; classtype:bad-unknown; sid:9000004; rev:1;)
 
 alert tcp $TENANT_NET any -> $TENANT_NET any (msg:"MINI-SOC Tenant TCP SYN port scan across VXLAN"; flags:S,12; threshold: type both, track by_src, count 20, seconds 10; classtype:attempted-recon; sid:9000005; rev:1;)
+alert icmp $TENANT_NET any -> $TENANT_NET any (msg:"MINI-SOC Tenant ICMP flood across VXLAN"; itype:8; threshold: type both, track by_src, count 200, seconds 5; classtype:attempted-dos; sid:9000006; rev:1;)
+alert udp $TENANT_NET any -> $TENANT_NET any (msg:"MINI-SOC Tenant UDP flood across VXLAN"; threshold: type both, track by_src, count 500, seconds 5; classtype:attempted-dos; sid:9000007; rev:1;)
