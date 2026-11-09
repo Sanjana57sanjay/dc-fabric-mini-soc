@@ -1,10 +1,10 @@
-# Part 7 attack sidecars. Run on demand only:
+# Part 7 sidecars. Run on demand only:
 #   docker compose run --rm <service> <command>
 # They share the network namespace of an existing clab node,
 # so the fabric topology is unchanged.
 name: mini-soc-attack
 
-x-attacker: &attacker
+x-sidecar: &sidecar
   image: mini-soc/attacker:1.0
   pull_policy: never
   mem_limit: 128m
@@ -14,9 +14,17 @@ x-attacker: &attacker
 
 services:
   attacker-host1:        # tenant-side attacks (7.1, 7.5)
-    <<: *attacker
+    <<: *sidecar
     network_mode: container:clab-fabric-host1
 
   attacker-spine1:       # underlay-side attacks (7.2, 7.3)
-    <<: *attacker
+    <<: *sidecar
     network_mode: container:clab-fabric-spine1
+
+  admin-leaf1:           # defensive config in leaf1's namespace (7.4)
+    <<: *sidecar
+    network_mode: container:clab-fabric-leaf1
+
+  admin-leaf2:           # defensive config in leaf2's namespace (7.4)
+    <<: *sidecar
+    network_mode: container:clab-fabric-leaf2
