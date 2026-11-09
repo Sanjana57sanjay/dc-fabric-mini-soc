@@ -11,3 +11,5 @@ alert udp !$VTEP_NET any -> $VTEP_NET $VXLAN_PORTS (msg:"FABRIC VXLAN packet fro
 
 # 9000004 - local equivalent of ET/GPL 2100498 (ET Open not loaded on this sensor)
 alert ip any any -> any any (msg:"FABRIC ATTACK_RESPONSE id check returned root"; content:"uid=0|28|root|29|"; classtype:bad-unknown; sid:9000004; rev:1;)
+
+alert tcp $TENANT_NET any -> $TENANT_NET any (msg:"MINI-SOC Tenant TCP SYN port scan across VXLAN"; flags:S,12; threshold: type both, track by_src, count 20, seconds 10; classtype:attempted-recon; sid:9000005; rev:1;)
