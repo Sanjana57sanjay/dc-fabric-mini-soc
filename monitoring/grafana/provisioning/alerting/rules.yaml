@@ -1,0 +1,130 @@
+apiVersion: 1
+groups:
+  - orgId: 1
+    name: fabric-security
+    folder: dc-fabric-mini-soc
+    interval: 30s
+    rules:
+      - uid: underlay-attack
+        title: Underlay attack detected (BGP/VXLAN)
+        condition: C
+        data:
+          - refId: A
+            relativeTimeRange: { from: 300, to: 0 }
+            datasourceUid: loki
+            model:
+              refId: A
+              queryType: range
+              expr: 'sum(count_over_time({job="suricata", event_type="alert"} | json | alert_signature_id=~"9000002|9000003" [2m]))'
+          - refId: B
+            datasourceUid: __expr__
+            model: { refId: B, type: reduce, expression: A, reducer: last, settings: { mode: replaceNN, replaceWithValue: 0 } }
+          - refId: C
+            datasourceUid: __expr__
+            model: { refId: C, type: threshold, expression: B, conditions: [ { evaluator: { type: gt, params: [0] } } ] }
+        noDataState: OK
+        execErrState: Error
+        for: 0s
+        labels: { severity: critical, layer: underlay }
+        annotations:
+          summary: Rogue BGP peer or forged VXLAN seen on leaf1 uplinks
+          description: Suricata rules 9000002/9000003 fired. Check the suricata-alerts dashboard.
+
+      - uid: tenant-attack
+        title: Tenant attack detected (scan/flood)
+        condition: C
+        data:
+          - refId: A
+            relativeTimeRange: { from: 300, to: 0 }
+            datasourceUid: loki
+            model:
+              refId: A
+              queryType: range
+              expr: 'sum(count_over_time({job="suricata", event_type="alert"} | json | alert_signature_id=~"9000005|9000006|9000007" [2m]))'
+          - refId: B
+            datasourceUid: __expr__
+            model: { refId: B, type: reduce, expression: A, reducer: last, settings: { mode: replaceNN, replaceWithValue: 0 } }
+          - refId: C
+            datasourceUid: __expr__
+            model: { refId: C, type: threshold, expression: B, conditions: [ { evaluator: { type: gt, params: [0] } } ] }
+        noDataState: OK
+        execErrState: Error
+        for: 0s
+        labels: { severity: warning, layer: tenant }
+        annotations:
+          summary: Port scan or flood between tenant hosts across VXLAN
+          description: Suricata rules 9000005-9000007 fired.
+
+      - uid: sensor-silent
+        title: IDS sensor silent (no stats from Suricata)
+        condition: C
+        data:
+          - refId: A
+            relativeTimeRange: { from: 300, to: 0 }
+            datasourceUid: loki
+            model:
+              refId: A
+              queryType: range
+              expr: 'sum(count_over_time({job="suricata", event_type="stats"} [2m])) or vector(0)'
+          - refId: B
+            datasourceUid: __expr__
+            model: { refId: B, type: reduce, expression: A, reducer: last, settings: { mode: replaceNN, replaceWithValue: 0 } }
+          - refId: C
+            datasourceUid: __expr__
+            model: { refId: C, type: threshold, expression: B, conditions: [ { evaluator: { type: lt, params: [1] } } ] }
+        noDataState: Alerting
+        execErrState: Error
+        for: 1m
+        labels: { severity: critical, layer: sensor }
+        annotations:
+          summary: Suricata on leaf1 stopped producing stats - IDS may be blind
+          description: Check ids-suricata-leaf1 logs for 'No such device'; recreate the IDS after a fabric redeploy.
+
+      - uid: sensor-drops
+        title: IDS sensor dropping packets
+        condition: C
+        data:
+          - refId: A
+            relativeTimeRange: { from: 600, to: 0 }
+            datasourceUid: loki
+            model:
+              refId: A
+              queryType: range
+              expr: 'sum(sum_over_time({job="suricata", event_type="stats"} | json | __error__="" | unwrap stats_capture_kernel_drops_delta [5m]))'
+          - refId: B
+            datasourceUid: __expr__
+            model: { refId: B, type: reduce, expression: A, reducer: last, settings: { mode: replaceNN, replaceWithValue: 0 } }
+          - refId: C
+            datasourceUid: __expr__
+            model: { refId: C, type: threshold, expression: B, conditions: [ { evaluator: { type: gt, params: [0] } } ] }
+        noDataState: OK
+        execErrState: Error
+        for: 0s
+        labels: { severity: warning, layer: sensor }
+        annotations:
+          summary: Suricata kernel drops > 0 in the last 5 min - detection is incomplete
+          description: See the 7.5 capacity table for the sensor's known limit.
+
+      - uid: bgp-session-reset
+        title: BGP session reset or down
+        condition: C
+        data:
+          - refId: A
+            relativeTimeRange: { from: 300, to: 0 }
+            datasourceUid: prometheus
+            model:
+              refId: A
+              expr: 'min(frr_bgp_peer_uptime_seconds)'
+          - refId: B
+            datasourceUid: __expr__
+            model: { refId: B, type: reduce, expression: A, reducer: last }
+          - refId: C
+            datasourceUid: __expr__
+            model: { refId: C, type: threshold, expression: B, conditions: [ { evaluator: { type: lt, params: [120] } } ] }
+        noDataState: Alerting
+        execErrState: Error
+        for: 0s
+        labels: { severity: warning, layer: underlay }
+        annotations:
+          summary: A BGP peer has been up for less than 2 minutes (reset, flap or down)
+          description: Check 'show bgp summary' on the leaves; MD5/GTSM mismatch is a common cause.

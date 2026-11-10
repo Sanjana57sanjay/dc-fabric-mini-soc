@@ -1,0 +1,17 @@
+apiVersion: 1
+contactPoints:
+  - orgId: 1
+    name: lab-webhook
+    receivers:
+      - uid: lab-webhook
+        type: webhook
+        settings:
+          url: http://alert-sink:8080/
+          httpMethod: POST
+policies:
+  - orgId: 1
+    receiver: lab-webhook
+    group_by: ["alertname", "severity"]
+    group_wait: 10s
+    group_interval: 1m
+    repeat_interval: 1h
