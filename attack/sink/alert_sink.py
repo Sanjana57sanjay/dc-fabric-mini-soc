@@ -11,7 +11,7 @@ class H(http.server.BaseHTTPRequestHandler):
                 name = lb.get("alertname", "?")
                 if lb.get("rulename") and lb["rulename"] != name:
                     name = f"{name} (rule: {lb['rulename']})"
-                print(f"{datetime.datetime.utcnow():%H:%M:%S} UTC  "
+                print(f"{datetime.datetime.now(datetime.timezone.utc):%H:%M:%S} UTC  "
                       f"{a.get('status', '?').upper():9} {lb.get('severity', '-'):9} {name}", flush=True)
         except Exception as e:
             print("bad payload:", e, flush=True)
